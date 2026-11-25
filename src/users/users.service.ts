@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Order } from '../orders/order.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User, UserRole } from './user.entity';
 
@@ -83,6 +84,17 @@ export class UsersService {
 
   async remove(id: number): Promise<{ message: string }> {
     const user = await this.findOne(id);
+
+    // Keep order history intact: a user who has orders cannot be deleted
+    const orderCount = await this.usersRepository.manager.count(Order, {
+      where: { userId: id },
+    });
+    if (orderCount > 0) {
+      throw new ConflictException(
+        `User #${id} has ${orderCount} order(s) and cannot be deleted`,
+      );
+    }
+
     await this.usersRepository.remove(user);
     return { message: `User #${id} deleted successfully` };
   }

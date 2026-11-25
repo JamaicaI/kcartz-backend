@@ -1,7 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CategoriesService } from '../categories/categories.service';
+import { OrderItem } from '../orders/order-item.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -77,6 +82,18 @@ export class ProductsService {
 
   async remove(id: number): Promise<{ message: string }> {
     const product = await this.findOne(id);
+
+    // Keep order history intact: a product that was ordered cannot be deleted
+    const orderedCount = await this.productsRepository.manager.count(
+      OrderItem,
+      { where: { productId: id } },
+    );
+    if (orderedCount > 0) {
+      throw new ConflictException(
+        `Product #${id} appears in ${orderedCount} order(s) and cannot be deleted. Set its stock to 0 instead.`,
+      );
+    }
+
     await this.productsRepository.remove(product);
     return { message: `Product #${id} deleted successfully` };
   }
