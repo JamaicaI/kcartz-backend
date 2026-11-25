@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   Logger,
   OnModuleInit,
@@ -9,6 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '../users/user.entity';
 import { UsersService } from '../users/users.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
@@ -75,11 +77,42 @@ export class AuthService implements OnModuleInit {
     return {
       accessToken: await this.jwtService.signAsync(payload),
       tokenType: 'Bearer',
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
     };
   }
 
   getProfile(userId: number) {
     return this.usersService.findOne(userId);
+  }
+
+  async changePassword(userId: number, dto: ChangePasswordDto) {
+    const user = await this.usersService.findByIdWithPassword(userId);
+    if (!user) {
+      throw new UnauthorizedException('User no longer exists');
+    }
+
+    // The user must prove they know the current password
+    const currentMatches = await bcrypt.compare(
+      dto.currentPassword,
+      user.password,
+    );
+    if (!currentMatches) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException(
+        'New password must be different from the current password',
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.newPassword, SALT_ROUNDS);
+    await this.usersService.updatePassword(userId, hashedPassword);
+    return { message: 'Password changed successfully' };
   }
 }

@@ -4,11 +4,13 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -36,5 +38,15 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   getProfile(@CurrentUser() user: JwtPayload) {
     return this.authService.getProfile(user.sub);
+  }
+
+  // PATCH /auth/change-password  -> protected: logged-in user changes own password
+  @Patch('change-password')
+  @UseGuards(JwtAuthGuard)
+  changePassword(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(user.sub, dto);
   }
 }

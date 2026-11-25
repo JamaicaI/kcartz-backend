@@ -51,6 +51,19 @@ export class UsersService {
       .getOne();
   }
 
+  // Used by change-password: loads one user together with the password hash
+  findByIdWithPassword(id: number): Promise<User | null> {
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.id = :id', { id })
+      .getOne();
+  }
+
+  async updatePassword(id: number, hashedPassword: string): Promise<void> {
+    await this.usersRepository.update(id, { password: hashedPassword });
+  }
+
   async hasAdmin(): Promise<boolean> {
     const count = await this.usersRepository.count({
       where: { role: UserRole.ADMIN },
